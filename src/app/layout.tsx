@@ -43,9 +43,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-background">
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        <main className="relative flex-1">{children}</main>
         <SiteFooter />
       </body>
     </html>

@@ -23,7 +23,7 @@ export function SiteHeader() {
         </Link>
 
         {/* 右侧：导航 + 主题切换 */}
-        <nav className="flex items-center gap-1">
+        <nav className="group/nav flex items-center gap-1">
           {NAV_LINKS.map((link) => (
             <NavLink key={link.href} href={link.href} label={link.label} />
           ))}
@@ -41,7 +41,8 @@ function NavLink({ href, label }: { href: string; label: string }) {
       href={href}
       className={cn(
         "rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground",
-        "transition-colors hover:bg-muted hover:text-foreground"
+        "transition-colors hover:bg-muted hover:text-foreground",
+        "group-hover/nav:animate-shake"
       )}
     >
       {label}

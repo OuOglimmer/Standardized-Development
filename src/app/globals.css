@@ -51,6 +51,8 @@
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+  --grid-bg: oklch(0.97 0.02 230);
+  --grid-line: oklch(0.55 0.1 240 / 0.12);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -86,6 +88,8 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+  --grid-bg: oklch(0.08 0.025 250);
+  --grid-line: oklch(0.45 0.08 230 / 0.1);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
@@ -168,5 +172,77 @@
 
   .content-auto {
     content-visibility: auto;
+  }
+
+  /*
+    全局网格背景 — 历史类,保留兼容
+    2px 蓝色线条, 淡蓝底色, 随页面滚动
+    浅色/深色模式分别适配
+  */
+  .bg-grid-pattern {
+    background-color: var(--grid-bg);
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 22px,
+        var(--grid-line) 22px,
+        var(--grid-line) 24px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 22px,
+        var(--grid-line) 22px,
+        var(--grid-line) 24px
+      );
+    background-size: 24px 24px;
+  }
+
+  /*
+    页面顶部装饰区 — 局部草稿纸网格
+    绝对定位,高度 20vh,融入正常文档流滚动(非吸顶)
+    底部边缘通过渐变蒙版柔和淡出,避免生硬切割
+    浅色/深色模式分别适配
+  */
+  .bg-grid-decor {
+    background-color: var(--grid-bg);
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 15px,
+        var(--grid-line) 15px,
+        var(--grid-line) 16px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 15px,
+        var(--grid-line) 15px,
+        var(--grid-line) 16px
+      );
+    background-size: 16px 16px;
+    /* 底部边缘柔和淡出 */
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
+  }
+
+  /*
+    导航栏抖动动画
+    鼠标悬停在 nav 上时触发, 流畅的单次抖动
+  */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-2px); }
+    30% { transform: translateX(2px); }
+    45% { transform: translateX(-2px); }
+    60% { transform: translateX(1px); }
+    75% { transform: translateX(-1px); }
+    90% { transform: translateX(0); }
+  }
+
+  .animate-shake {
+    animation: shake 0.45s ease-in-out;
   }
 }
