@@ -1,6 +1,5 @@
 import { AboutHero } from "@/components/about/about-hero";
 import { AboutContent } from "@/components/about/about-content";
-import { GridHeaderDecorator } from "@/components/layout/grid-header-decorator";
 
 export const metadata = {
   title: "About",
@@ -9,8 +8,7 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="relative min-h-screen bg-background">
-      <GridHeaderDecorator />
+    <div className="min-h-screen">
       <AboutHero />
       <AboutContent />
     </div>

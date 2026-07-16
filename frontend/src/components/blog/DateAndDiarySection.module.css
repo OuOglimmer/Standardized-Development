@@ -1,0 +1,25 @@
+.scrollContainer {
+  max-height: 400px; /* 根据需求调整高度 */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* 优化移动设备上的滚动体验 */
+  scroll-behavior: smooth; /* 平滑滚动 */
+  
+  /* 自定义滚动条格式 */
+  &::-webkit-scrollbar {
+    width: 8px; /* WebKit/Blink 浏览器的滚动条宽度 */
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1; /* 滚动条轨道背景色 */
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #888; /* 滚动条滑块颜色 */
+    border-radius: 4px; /* 圆角效果 */
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #555; /* 鼠标悬停时的颜色变化 */
+  }
+  
+  @media (max-width: 600px) {
+    max-height: 300px; /* 在小屏幕上减少高度 */
+  }
+}

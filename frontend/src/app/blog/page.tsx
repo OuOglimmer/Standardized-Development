@@ -1,5 +1,4 @@
 import { DiaryFeed } from "@/components/blog/diary-feed";
-import { GridHeaderDecorator } from "@/components/layout/grid-header-decorator";
 
 export const metadata = {
   title: "Blog",
@@ -7,10 +6,5 @@ export const metadata = {
 };
 
 export default function BlogPage() {
-  return (
-    <>
-      <GridHeaderDecorator />
-      <DiaryFeed />
-    </>
-  );
+  return <DiaryFeed />;
 }

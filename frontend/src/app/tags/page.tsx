@@ -1,5 +1,4 @@
 import { PortfolioGrid } from "@/components/portfolio/portfolio-grid";
-import { GridHeaderDecorator } from "@/components/layout/grid-header-decorator";
 
 export const metadata = {
   title: "Tags",
@@ -8,8 +7,7 @@ export const metadata = {
 
 export default function TagsPage() {
   return (
-    <div className="relative min-h-screen bg-background">
-      <GridHeaderDecorator />
+    <div className="min-h-screen">
       <PortfolioGrid />
     </div>
   );

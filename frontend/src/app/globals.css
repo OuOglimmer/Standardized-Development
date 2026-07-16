@@ -88,8 +88,8 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --grid-bg: oklch(0.08 0.025 250);
-  --grid-line: oklch(0.45 0.08 230 / 0.1);
+  --grid-bg: oklch(0.11 0.03 250);
+  --grid-line: oklch(0.7 0.12 230 / 0.28);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
@@ -200,35 +200,6 @@
   }
 
   /*
-    页面顶部装饰区 — 局部草稿纸网格
-    绝对定位,高度 20vh,融入正常文档流滚动(非吸顶)
-    底部边缘通过渐变蒙版柔和淡出,避免生硬切割
-    浅色/深色模式分别适配
-  */
-  .bg-grid-decor {
-    background-color: var(--grid-bg);
-    background-image:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 15px,
-        var(--grid-line) 15px,
-        var(--grid-line) 16px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 15px,
-        var(--grid-line) 15px,
-        var(--grid-line) 16px
-      );
-    background-size: 16px 16px;
-    /* 底部边缘柔和淡出 */
-    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
-  }
-
-  /*
     导航栏抖动动画
     鼠标悬停在 nav 上时触发, 流畅的单次抖动
   */
@@ -244,5 +215,54 @@
 
   .animate-shake {
     animation: shake 0.45s ease-in-out;
+  }
+}
+
+/*
+  页面顶部装饰区 — 局部草稿纸网格 + 画布循环位移动画
+  fixed 固定在视口顶部,高度 30vh,header 透出可见
+  底部边缘通过渐变蒙版柔和淡出,避免生硬切割
+  背景做无限循环位移动画(慢速氛围)
+  浅色/深色模式分别适配
+  注: 写在 @layer 之外,避免 Tailwind v4 在 @layer utilities 内
+  丢弃 @keyframes 导致动画失效
+*/
+.bg-grid-decor {
+  background-color: var(--grid-bg);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 15px,
+      var(--grid-line) 15px,
+      var(--grid-line) 16px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 15px,
+      var(--grid-line) 15px,
+      var(--grid-line) 16px
+    );
+  background-size: 16px 16px;
+  /* 底部边缘柔和淡出 */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
+  /* 画布循环位移:背景沿对角线无限平移,周期约 1s,慢速氛围 */
+  animation: grid-scroll 1s linear infinite;
+}
+
+@keyframes grid-scroll {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-grid-decor {
+    animation: none;
   }
 }
