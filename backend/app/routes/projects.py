@@ -8,7 +8,12 @@ from sqlalchemy.orm import selectinload
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models import Project, ProjectTag, Tag, User
-from app.schemas import ProjectCreate, ProjectOut, ProjectUpdate
+from app.schemas import ProjectCreate, ProjectOut, ProjectUpdate, TagOut
+
+
+def _orm_to_dict(instance) -> dict:
+    """Convert SQLAlchemy ORM instance to dict, excluding relationships."""
+    return {c.name: getattr(instance, c.name) for c in instance.__table__.columns}
 
 router = APIRouter(prefix="/api/projects", tags=["作品集"])
 
@@ -40,8 +45,8 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
 
     output = []
     for p in projects:
-        out = ProjectOut.model_validate(p)
-        out.tags = tag_map.get(p.id, [])
+        out = ProjectOut.model_validate(_orm_to_dict(p))
+        out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(p.id, [])]
         output.append(out)
     return output
 
@@ -54,8 +59,8 @@ async def get_project(slug: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     tag_map = await _load_project_tags(db, [project.id])
-    out = ProjectOut.model_validate(project)
-    out.tags = tag_map.get(project.id, [])
+    out = ProjectOut.model_validate(_orm_to_dict(project))
+    out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(project.id, [])]
     return out
 
 
@@ -91,8 +96,8 @@ async def create_project(
     await db.refresh(project)
 
     tag_map = await _load_project_tags(db, [project.id])
-    out = ProjectOut.model_validate(project)
-    out.tags = tag_map.get(project.id, [])
+    out = ProjectOut.model_validate(_orm_to_dict(project))
+    out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(project.id, [])]
     return out
 
 
@@ -123,8 +128,8 @@ async def update_project(
     await db.refresh(project)
 
     tag_map = await _load_project_tags(db, [project.id])
-    out = ProjectOut.model_validate(project)
-    out.tags = tag_map.get(project.id, [])
+    out = ProjectOut.model_validate(_orm_to_dict(project))
+    out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(project.id, [])]
     return out
 
 

@@ -1,25 +1,95 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { fetchPosts, type Post } from "@/lib/api/posts";
-import { getRecentDays, formatMonth, formatDay, isSameDay } from "@/lib/date-utils";
+import { Trash2 } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { deletePost, fetchPosts, type Post } from "@/lib/api/posts";
+import {
+  formatDateParam,
+  formatDay,
+  formatMonth,
+  getRecentDays,
+  isSameDay,
+} from "@/lib/date-utils";
 import { cardVariants } from "./animations";
 import { DiarySubmit } from "./diary-submit";
 
-export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
-  const recentDays = getRecentDays(7);
-  const [selectedDate, setSelectedDate] = useState(recentDays[0]);
+const DIARY_PAGE_SIZE = 100;
 
-  const { data: posts = [], isLoading } = useQuery({
-    queryKey: ["posts", "diary"],
-    queryFn: () => fetchPosts({ is_published: true, limit: 50 }),
+function formatDiaryDate(value: string | null): string {
+  if (!value) return "";
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return value;
+
+  const [, year, month, day] = match;
+  return `${year}年${Number(month)}月${Number(day)}日`;
+}
+
+async function fetchAllDiaries(diaryDate?: string): Promise<Post[]> {
+  const diaries: Post[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchPosts({
+      content_type: "diary",
+      diary_date: diaryDate,
+      is_published: true,
+      limit: DIARY_PAGE_SIZE,
+      offset,
+    });
+    diaries.push(...page);
+
+    if (page.length < DIARY_PAGE_SIZE) {
+      return diaries;
+    }
+    offset += DIARY_PAGE_SIZE;
+  }
+}
+
+export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const recentDays = getRecentDays(7);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [postToDelete, setPostToDelete] = useState<Post | null>(null);
+  const selectedDiaryDate = selectedDate ? formatDateParam(selectedDate) : undefined;
+
+  const { data: posts = [], isLoading, error } = useQuery({
+    queryKey: ["posts", "diary", selectedDiaryDate ?? "all"],
+    queryFn: () => fetchAllDiaries(selectedDiaryDate),
   });
 
-  const filteredPosts = posts.filter(
-    (p) => p.diary_date && isSameDay(new Date(p.diary_date), selectedDate)
-  );
+  const deleteMutation = useMutation({
+    mutationFn: (postId: string) => deletePost(postId),
+    onSuccess: async () => {
+      setPostToDelete(null);
+      await queryClient.invalidateQueries({ queryKey: ["posts", "diary"] });
+    },
+  });
+
+  const openDeleteDialog = (post: Post) => {
+    deleteMutation.reset();
+    setPostToDelete(post);
+  };
+
+  const closeDeleteDialog = () => {
+    if (!deleteMutation.isPending) {
+      setPostToDelete(null);
+      deleteMutation.reset();
+    }
+  };
 
   return (
     <section
@@ -58,9 +128,22 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
               <DiarySubmit />
             </div>
             <ul className="flex flex-row gap-2 overflow-x-auto lg:flex-col">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(null)}
+                  className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-colors lg:px-5 ${
+                    selectedDate === null
+                      ? "bg-primary/10 font-semibold text-primary"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  全部
+                </button>
+              </li>
               {recentDays.map((day) => {
                 const { date, dayName } = formatDay(day);
-                const isActive = isSameDay(day, selectedDate);
+                const isActive = selectedDate !== null && isSameDay(day, selectedDate);
 
                 return (
                   <motion.li
@@ -97,11 +180,15 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
         </aside>
 
         <main className="flex-1">
-          {isLoading ? (
+          {error ? (
+            <p className="mt-8 text-center text-sm text-destructive">
+              {error instanceof Error ? error.message : "日记加载失败"}
+            </p>
+          ) : isLoading ? (
             <p className="text-sm text-muted-foreground">加载中...</p>
-          ) : filteredPosts.length === 0 ? (
+          ) : posts.length === 0 ? (
             <p className="mt-8 text-center text-sm text-muted-foreground">
-              这一天还没有日记
+              {selectedDate === null ? "暂无日记" : "这一天还没有日记"}
             </p>
           ) : (
             <motion.div
@@ -110,18 +197,80 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
               viewport={{ once: true, margin: "-40px" }}
               className="flex flex-col gap-6"
             >
-              {filteredPosts.map((entry, i) => (
-                <DiaryCard key={entry.id} entry={entry} index={i} />
+              {posts.map((entry, i) => (
+                <DiaryCard
+                  key={entry.id}
+                  entry={entry}
+                  index={i}
+                  canDelete={isAdmin}
+                  onDelete={openDeleteDialog}
+                />
               ))}
             </motion.div>
           )}
         </main>
       </div>
+
+      <Dialog
+        open={postToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) closeDeleteDialog();
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>删除这篇日记？</DialogTitle>
+            <DialogDescription>
+              删除后将不再公开显示，但内容仍会保留在数据库中。
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteMutation.error && (
+            <p className="text-sm text-destructive">
+              {deleteMutation.error instanceof Error
+                ? deleteMutation.error.message
+                : "删除失败"}
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeDeleteDialog}
+              disabled={deleteMutation.isPending}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (postToDelete) deleteMutation.mutate(postToDelete.id);
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 />
+              {deleteMutation.isPending ? "删除中..." : "确认删除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
-function DiaryCard({ entry, index }: { entry: Post; index: number }) {
+function DiaryCard({
+  entry,
+  index,
+  canDelete,
+  onDelete,
+}: {
+  entry: Post;
+  index: number;
+  canDelete: boolean;
+  onDelete: (entry: Post) => void;
+}) {
   return (
     <motion.article
       variants={cardVariants}
@@ -135,19 +284,30 @@ function DiaryCard({ entry, index }: { entry: Post; index: number }) {
       className="group rounded-2xl border border-border/50 bg-card p-6 shadow-[0_4px_12px_rgba(0,0,0,0.03)] transition-shadow duration-300 ease-in-out hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.08)] sm:p-8"
     >
       <div className="mb-4 flex items-center justify-between">
-        <time className="text-sm font-medium text-muted-foreground">
-          {entry.created_at
-            ? new Date(entry.created_at).toLocaleString("zh-CN", {
-                month: "numeric",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : ""}
+        <time
+          dateTime={entry.diary_date ?? undefined}
+          className="text-sm font-medium text-muted-foreground"
+        >
+          {formatDiaryDate(entry.diary_date)}
         </time>
-        <span className="text-xl" role="img" aria-label="mood">
-          {entry.emoji}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xl" role="img" aria-label="mood">
+            {entry.emoji}
+          </span>
+          {canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-destructive"
+              aria-label="删除日记"
+              title="删除日记"
+              onClick={() => onDelete(entry)}
+            >
+              <Trash2 />
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="max-w-[600px]">

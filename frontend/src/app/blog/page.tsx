@@ -1,4 +1,4 @@
-import { DiaryFeed } from "@/components/blog/diary-feed";
+import { PostList } from "@/components/blog/post-list";
 
 export const metadata = {
   title: "Blog",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function BlogPage() {
-  return <DiaryFeed />;
+  return <PostList />;
 }

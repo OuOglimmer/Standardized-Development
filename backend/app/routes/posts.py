@@ -1,20 +1,28 @@
-from datetime import date
+from datetime import date, datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, is_admin_user
 from app.database import get_db
 from app.models import Post, PostTag, Tag, User
-from app.schemas import PostCreate, PostOut, PostUpdate
+from app.schemas import PostCreate, PostOut, PostUpdate, TagOut
+
+
+def _orm_to_dict(instance) -> dict:
+    """Convert SQLAlchemy ORM instance to dict, excluding relationships."""
+    return {c.name: getattr(instance, c.name) for c in instance.__table__.columns}
 
 router = APIRouter(prefix="/api/posts", tags=["文章/日记"])
 
 
 async def _load_post_tags(db: AsyncSession, post_ids: list[UUID]) -> dict[UUID, list[Tag]]:
+    if not post_ids:
+        return {}
+
     result = await db.execute(
         select(PostTag).where(PostTag.post_id.in_(post_ids))
     )
@@ -35,17 +43,47 @@ async def _load_post_tags(db: AsyncSession, post_ids: list[UUID]) -> dict[UUID, 
 @router.get("", response_model=list[PostOut])
 async def list_posts(
     diary_date: date | None = Query(None),
+    content_type: Literal["blog", "diary"] | None = Query(None),
     is_published: bool | None = Query(None),
+    q: str | None = Query(None, min_length=1),
+    tag: str | None = Query(None, min_length=1),
     limit: int = Query(20, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Post).order_by(Post.created_at.desc()).offset(offset).limit(limit)
+    # Ignore legacy rows that predate the NOT NULL title constraint. They are
+    # kept in the database so their content can be repaired explicitly later.
+    query = (
+        select(Post)
+        .where(Post.title.is_not(None), Post.deleted_at.is_(None))
+    )
 
     if diary_date is not None:
         query = query.where(Post.diary_date == diary_date)
+    if content_type == "blog":
+        query = query.where(Post.diary_date.is_(None))
+    elif content_type == "diary":
+        query = query.where(Post.diary_date.is_not(None))
     if is_published is not None:
         query = query.where(Post.is_published == is_published)
+    if q:
+        pattern = f"%{q}%"
+        query = query.where(
+            or_(
+                Post.title.ilike(pattern),
+                Post.description.ilike(pattern),
+                Post.content.ilike(pattern),
+            )
+        )
+    if tag:
+        query = query.join(PostTag, PostTag.post_id == Post.id).join(Tag, Tag.id == PostTag.tag_id)
+        query = query.where(Tag.slug == tag)
+
+    if content_type == "diary":
+        query = query.order_by(Post.diary_date.desc(), Post.created_at.desc())
+    else:
+        query = query.order_by(Post.created_at.desc())
+    query = query.offset(offset).limit(limit)
 
     result = await db.execute(query)
     posts = result.scalars().all()
@@ -54,22 +92,32 @@ async def list_posts(
 
     output = []
     for p in posts:
-        post_out = PostOut.model_validate(p)
-        post_out.tags = tag_map.get(p.id, [])
+        post_out = PostOut.model_validate(_orm_to_dict(p))
+        post_out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(p.id, [])]
         output.append(post_out)
     return output
 
 
 @router.get("/{slug}", response_model=PostOut)
 async def get_post(slug: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Post).where(Post.slug == slug))
+    result = await db.execute(
+        select(Post).where(
+            Post.slug == slug,
+            Post.title.is_not(None),
+            Post.deleted_at.is_(None),
+        )
+    )
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
+    post.view_count += 1
+    await db.commit()
+    await db.refresh(post)
+
     tag_map = await _load_post_tags(db, [post.id])
-    post_out = PostOut.model_validate(post)
-    post_out.tags = tag_map.get(post.id, [])
+    post_out = PostOut.model_validate(_orm_to_dict(post))
+    post_out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(post.id, [])]
     return post_out
 
 
@@ -87,9 +135,14 @@ async def create_post(
         title=body.title,
         slug=body.slug,
         content=body.content,
+        content_format=body.content_format,
+        source_filename=body.source_filename,
+        description=body.description,
+        cover_image=body.cover_image,
         emoji=body.emoji,
         diary_date=body.diary_date,
         author_id=current_user.id,
+        reading_time=body.reading_time,
         is_published=body.is_published,
     )
     db.add(post)
@@ -102,8 +155,8 @@ async def create_post(
     await db.refresh(post)
 
     tag_map = await _load_post_tags(db, [post.id])
-    post_out = PostOut.model_validate(post)
-    post_out.tags = tag_map.get(post.id, [])
+    post_out = PostOut.model_validate(_orm_to_dict(post))
+    post_out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(post.id, [])]
     return post_out
 
 
@@ -114,15 +167,23 @@ async def update_post(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Post).where(Post.id == post_id))
+    result = await db.execute(
+        select(Post).where(Post.id == post_id, Post.deleted_at.is_(None))
+    )
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if post.author_id != current_user.id:
+    if post.author_id != current_user.id and not is_admin_user(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
     update_data = body.model_dump(exclude_unset=True)
     tag_ids = update_data.pop("tag_ids", None)
+
+    new_slug = update_data.get("slug")
+    if isinstance(new_slug, str) and new_slug != post.slug:
+        existing = await db.execute(select(Post).where(Post.slug == new_slug))
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slug already exists")
 
     for field, value in update_data.items():
         setattr(post, field, value)
@@ -136,9 +197,19 @@ async def update_post(
     await db.refresh(post)
 
     tag_map = await _load_post_tags(db, [post.id])
-    post_out = PostOut.model_validate(post)
-    post_out.tags = tag_map.get(post.id, [])
+    post_out = PostOut.model_validate(_orm_to_dict(post))
+    post_out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(post.id, [])]
     return post_out
+
+
+@router.put("/{post_id}", response_model=PostOut)
+async def replace_post(
+    post_id: UUID,
+    body: PostUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await update_post(post_id, body, db, current_user)
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -147,12 +218,14 @@ async def delete_post(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Post).where(Post.id == post_id))
+    result = await db.execute(
+        select(Post).where(Post.id == post_id, Post.deleted_at.is_(None))
+    )
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if post.author_id != current_user.id:
+    if post.author_id != current_user.id and not is_admin_user(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
-    await db.delete(post)
+    post.deleted_at = datetime.now(timezone.utc)
     await db.commit()

@@ -1,11 +1,13 @@
 import Link from "next/link";
 
+import { AuthDialog } from "@/components/auth/auth-dialog";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/blog", label: "Blog" },
+  { href: "/diary", label: "日记" },
   { href: "/tags", label: "Tags" },
   { href: "/about", label: "About" },
 ] as const;
@@ -28,6 +30,7 @@ export function SiteHeader() {
             <NavLink key={link.href} href={link.href} label={link.label} />
           ))}
           <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+          <AuthDialog />
           <ThemeToggle />
         </nav>
       </div>

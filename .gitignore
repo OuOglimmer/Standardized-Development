@@ -2,6 +2,7 @@
 
 # dependencies
 frontend/node_modules
+/.pnpm-store/
 /.pnp
 .pnp.*
 .yarn/*
@@ -12,9 +13,15 @@ frontend/node_modules
 
 # testing
 /coverage
+.pytest_cache/
+
+# python
+__pycache__/
+.venv/
+backend/.venv/
 
 # next.js
-frontend/.next/
+.next/
 frontend/out/
 
 # production
@@ -32,6 +39,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!frontend/.env.example
+!backend/.env.example
 
 # vercel
 .vercel

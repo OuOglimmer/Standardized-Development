@@ -1,10 +1,37 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { getAccessToken } from "./supabase-auth";
+
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api`
+).replace(/\/$/, "");
+
+function buildApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (API_BASE.endsWith("/api") && normalizedPath.startsWith("/api/")) {
+    return `${API_BASE}${normalizedPath.slice(4)}`;
+  }
+  if (!API_BASE.endsWith("/api") && !normalizedPath.startsWith("/api/")) {
+    return `${API_BASE}/api${normalizedPath}`;
+  }
+  return `${API_BASE}${normalizedPath}`;
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
-  });
+  const token = getAccessToken();
+  let res: Response;
+  try {
+    res = await fetch(buildApiUrl(path), {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+      ...options,
+    });
+  } catch {
+    throw new Error(`无法连接后端服务：${API_BASE}`);
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `HTTP ${res.status}`);

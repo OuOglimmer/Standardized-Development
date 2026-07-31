@@ -65,7 +65,7 @@ export function PortfolioGrid() {
                   className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl will-change-transform"
                 >
                   {slug ? (
-                    <Link href={`/tags/${slug}`} className="block h-full">
+                    <Link href={`/portfolio/${slug}`} className="block h-full">
                       <ProjectCardContent item={item} isWide={isWide} />
                     </Link>
                   ) : (

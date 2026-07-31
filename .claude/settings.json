@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(py -0p)",
+      "Bash(py -3.12 -m venv .venv)",
+      "Bash(.venv/Scripts/python.exe -m pip install -r requirements.txt)",
+      "Bash(.venv/Scripts/python.exe -c 'import asyncio; from sqlalchemy import text; from app.database import async_session *)",
+      "Bash(.venv/Scripts/python.exe -c \"from app.config import settings; print\\(repr\\(settings.database_url\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import socket; print\\(socket.getaddrinfo\\('db.ragnprnjluusdrprkmjn.supabase.co', 5432\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import socket; print\\(socket.getaddrinfo\\('supabase.co', 443\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import socket; print\\(socket.getaddrinfo\\('google.com', 443\\)\\)\")"
+    ]
+  }
+}
