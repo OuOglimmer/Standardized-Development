@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { motion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { fetchProjects, type Project } from "@/lib/api/projects";
-import { PlaceholderMockup } from "./effects";
 
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 64, scale: 0.96 },
@@ -21,7 +20,8 @@ const itemVariants: Variants = {
 };
 
 export function PortfolioGrid() {
-  const { data: projects = [], isLoading } = useQuery({
+  const shouldReduceMotion = useReducedMotion();
+  const { data: projects = [], isLoading, error } = useQuery({
     queryKey: ["projects"],
     queryFn: fetchProjects,
   });
@@ -29,23 +29,35 @@ export function PortfolioGrid() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:py-28">
       <motion.h2
-        initial={{ opacity: 0, y: 24 }}
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="mb-8 text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+        className="mb-8 text-4xl font-semibold text-foreground sm:text-5xl"
       >
         我的作品
       </motion.h2>
 
-      {isLoading ? (
-        <p className="text-center text-sm text-muted-foreground">加载中...</p>
+      {error ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+          {error instanceof Error ? error.message : "作品加载失败"}
+        </div>
+      ) : isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2" aria-label="作品加载中">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-64 animate-pulse rounded-lg border border-border bg-card/60" />
+          ))}
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-card/35 px-6 py-12 text-center text-sm text-muted-foreground">
+          暂无公开作品
+        </div>
       ) : (
-        <div className="rounded-3xl bg-[#121212] p-5 shadow-2xl sm:p-8">
+        <div className="rounded-lg border border-border bg-card/55 p-4 sm:p-6">
           <motion.div
-            initial="hidden"
+            initial={shouldReduceMotion ? false : "hidden"}
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
-            className="grid grid-cols-[2fr_1fr] auto-rows-auto gap-4 sm:gap-5"
+            className="grid grid-cols-1 auto-rows-auto gap-4 md:grid-cols-[2fr_1fr] md:gap-5"
           >
             {projects.map((item, i) => {
               const isWide = item.type === "wide";
@@ -57,12 +69,12 @@ export function PortfolioGrid() {
                   key={item.id}
                   variants={itemVariants}
                   custom={rowIdx}
-                  whileHover={{
-                    y: -6,
+                  whileHover={shouldReduceMotion ? undefined : {
+                    y: -3,
                     boxShadow: "0 20px 48px -12px rgba(0,0,0,0.5)",
                     transition: { duration: 0.35, ease: "easeInOut" },
                   }}
-                  className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl will-change-transform"
+                  className="group relative overflow-hidden rounded-lg border border-border bg-background/45 backdrop-blur-xl"
                 >
                   {slug ? (
                     <Link href={`/portfolio/${slug}`} className="block h-full">
@@ -91,7 +103,7 @@ function ProjectCardContent({
   return (
     <>
       {item.featured_image && isWide && (
-        <div className="relative mb-4 aspect-[16/10] w-full overflow-hidden rounded-xl bg-white/[0.02]">
+        <div className="relative mb-4 aspect-[16/10] w-full overflow-hidden rounded-lg bg-muted/40">
           <img
             src={item.featured_image}
             alt={item.title}
@@ -99,28 +111,22 @@ function ProjectCardContent({
           />
         </div>
       )}
-      {!item.featured_image && isWide && (
-        <div className="mb-4 aspect-[16/10] w-full overflow-hidden rounded-xl bg-white/[0.02]">
-          <PlaceholderMockup />
-        </div>
-      )}
-
       <div
         className={`flex flex-col p-5 sm:p-6 ${isWide ? "" : "pt-10 sm:pt-11"}`}
       >
         {isWide ? (
           <>
-            <h3 className="text-base font-semibold tracking-tight text-white/85 sm:text-lg">
+            <h3 className="text-base font-semibold text-foreground sm:text-lg">
               {item.title}
             </h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-white/45">
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               {item.description}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {item.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2.5 py-0.5 text-[11px] font-medium text-white/40"
+                  className="rounded-md border border-border bg-secondary/70 px-2.5 py-0.5 text-[11px] font-medium text-secondary-foreground"
                 >
                   {tag.name}
                 </span>
@@ -129,17 +135,17 @@ function ProjectCardContent({
           </>
         ) : (
           <>
-            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wider text-white/20">
+            <h3 className="mb-2 text-sm font-semibold text-foreground">
               {item.title}
             </h3>
-            <p className="text-sm leading-relaxed text-white/55">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               {item.description}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {item.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-0.5 text-[11px] font-medium text-white/35"
+                  className="rounded-md border border-border bg-secondary/70 px-2.5 py-0.5 text-[11px] font-medium text-secondary-foreground"
                 >
                   {tag.name}
                 </span>

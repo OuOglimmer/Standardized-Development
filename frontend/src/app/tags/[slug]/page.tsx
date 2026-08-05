@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PostCard } from "@/components/blog/post-card";
 import { fetchPosts } from "@/lib/api/posts";
 import { fetchTags } from "@/lib/api/tags";
+import { TAGS_PAGE_VISIBLE } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,10 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props) {
+  if (!TAGS_PAGE_VISIBLE) {
+    return { title: "Not Found" };
+  }
+
   const { slug } = await params;
   const tags = await fetchTags();
   const tag = tags.find((item) => item.slug === slug);
@@ -21,6 +26,10 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function TagPostsPage({ params }: Props) {
+  if (!TAGS_PAGE_VISIBLE) {
+    notFound();
+  }
+
   const { slug } = await params;
   const [tags, posts] = await Promise.all([
     fetchTags(),

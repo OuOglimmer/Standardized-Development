@@ -9,14 +9,14 @@ import type { Project } from "@/lib/api/projects";
 
 export function ProjectDetail({ project }: { project: Project }) {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-16 sm:py-24">
+    <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         <Link
-          href="/tags"
+          href="/portfolio"
           className="mb-8 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -24,7 +24,7 @@ export function ProjectDetail({ project }: { project: Project }) {
         </Link>
 
         {project.featured_image && (
-          <div className="relative mb-8 aspect-video w-full overflow-hidden rounded-2xl border">
+          <div className="relative mb-8 aspect-video w-full overflow-hidden rounded-lg border">
             <Image
               src={project.featured_image}
               alt={project.title}
@@ -34,7 +34,7 @@ export function ProjectDetail({ project }: { project: Project }) {
           </div>
         )}
 
-        <h1 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+        <h1 className="mb-4 text-4xl font-semibold sm:text-5xl">
           {project.title}
         </h1>
 
@@ -66,7 +66,7 @@ export function ProjectDetail({ project }: { project: Project }) {
           {project.tags.map((tag) => (
             <span
               key={tag.id}
-              className="rounded-lg bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
+              className="rounded-md bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
             >
               {tag.name}
             </span>

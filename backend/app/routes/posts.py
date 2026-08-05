@@ -1,15 +1,15 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, is_admin_user
+from app.auth.dependencies import get_admin_user, get_current_user, is_admin_user
 from app.database import get_db
 from app.models import Post, PostTag, Tag, User
-from app.schemas import PostCreate, PostOut, PostUpdate, TagOut
+from app.schemas import PostCreate, PostOrderUpdate, PostOut, PostUpdate, TagOut
 
 
 def _orm_to_dict(instance) -> dict:
@@ -81,6 +81,11 @@ async def list_posts(
 
     if content_type == "diary":
         query = query.order_by(Post.diary_date.desc(), Post.created_at.desc())
+    elif content_type == "blog":
+        query = query.order_by(
+            Post.display_order.asc().nulls_last(),
+            Post.created_at.desc(),
+        )
     else:
         query = query.order_by(Post.created_at.desc())
     query = query.offset(offset).limit(limit)
@@ -96,6 +101,38 @@ async def list_posts(
         post_out.tags = [TagOut.model_validate(tag) for tag in tag_map.get(p.id, [])]
         output.append(post_out)
     return output
+
+
+@router.patch("/order", status_code=status.HTTP_204_NO_CONTENT)
+async def update_post_order(
+    body: PostOrderUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_admin_user),
+) -> None:
+    blog_query = select(Post).where(
+        Post.diary_date.is_(None),
+        Post.is_published.is_(True),
+        Post.deleted_at.is_(None),
+    )
+    result = await db.execute(blog_query)
+    posts = result.scalars().all()
+    posts_by_id = {post.id: post for post in posts}
+
+    if not body.post_ids:
+        for post in posts:
+            post.display_order = None
+    else:
+        requested_ids = set(body.post_ids)
+        if len(requested_ids) != len(body.post_ids) or requested_ids != set(posts_by_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="必须提交全部已发布 Blog 文章，不能重复或遗漏",
+            )
+
+        for position, post_id in enumerate(body.post_ids):
+            posts_by_id[post_id].display_order = position
+
+    await db.commit()
 
 
 @router.get("/{slug}", response_model=PostOut)
@@ -227,5 +264,5 @@ async def delete_post(
     if post.author_id != current_user.id and not is_admin_user(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
-    post.deleted_at = datetime.now(timezone.utc)
+    await db.execute(delete(Post).where(Post.id == post.id))
     await db.commit()

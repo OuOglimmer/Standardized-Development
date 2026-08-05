@@ -1,4 +1,5 @@
-import { del, get, post } from "./client";
+import { del, get, patch, post } from "./client";
+import type { StoredContentFormat } from "@/lib/markdown";
 
 export interface Tag {
   id: string;
@@ -11,13 +12,14 @@ export interface Post {
   title: string;
   slug: string;
   content: string;
-  content_format: "plain" | "markdown";
+  content_format: StoredContentFormat;
   source_filename: string | null;
   description: string | null;
   cover_image: string | null;
   emoji: string;
   diary_date: string | null;
   author_id: string;
+  display_order: number | null;
   reading_time: number;
   is_published: boolean;
   view_count: number;
@@ -30,7 +32,7 @@ export interface CreatePostBody {
   title: string;
   slug: string;
   content: string;
-  content_format?: "plain" | "markdown";
+  content_format?: StoredContentFormat;
   source_filename?: string;
   description?: string;
   cover_image?: string;
@@ -69,6 +71,10 @@ export async function fetchPostBySlug(slug: string): Promise<Post> {
 
 export async function createPost(body: CreatePostBody): Promise<Post> {
   return post<Post>("/api/posts", body);
+}
+
+export async function updatePostOrder(postIds: string[]): Promise<void> {
+  return patch<void>("/api/posts/order", { post_ids: postIds });
 }
 
 export async function deletePost(postId: string): Promise<void> {

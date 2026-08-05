@@ -68,7 +68,6 @@ export const SKILLS: SkillGroup[] = [
 ];
 
 export type Profile = {
-  avatar: string;
   name: string;
   bio: string;
   location: string;
@@ -77,7 +76,6 @@ export type Profile = {
 
 /** GitHub 个人页风格的资料卡内容 */
 export const PROFILE: Profile = {
-  avatar: "👤",
   name: "OuOglimmer",
   bio: "一个记录技术、思考与生活的个人博客。在代码里找秩序，在文字里找节奏。",
   location: "Earth · Remote",

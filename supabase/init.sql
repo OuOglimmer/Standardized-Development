@@ -18,7 +18,7 @@ CREATE TABLE posts (
   slug TEXT UNIQUE NOT NULL,
   content TEXT NOT NULL,
   content_format TEXT NOT NULL DEFAULT 'plain'
-    CHECK (content_format IN ('plain', 'markdown')),
+    CHECK (content_format IN ('plain', 'markdown', 'mdx')),
   source_filename TEXT CHECK (source_filename IS NULL OR char_length(source_filename) <= 255),
   description TEXT,
   cover_image TEXT,
@@ -26,6 +26,7 @@ CREATE TABLE posts (
   diary_date DATE,
   author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   reading_time INT DEFAULT 0,
+  display_order INT,
   is_published BOOLEAN DEFAULT FALSE,
   view_count INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),

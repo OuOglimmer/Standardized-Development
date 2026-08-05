@@ -1,4 +1,9 @@
-import { createClient, type AuthChangeEvent, type Session } from "@supabase/supabase-js";
+import {
+  createClient,
+  type AuthChangeEvent,
+  type Session,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,25 +27,38 @@ interface ProfileResponse {
   username: string;
 }
 
-export const supabase = createClient(
-  requirePublicEnv(SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL"),
-  requirePublicEnv(SUPABASE_ANON_KEY, "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-    },
-  },
-);
-
 let currentAuthSession: AuthSession | null = null;
+let supabaseClient: SupabaseClient | null = null;
 
 function requirePublicEnv(value: string | undefined, name: string): string {
   if (!value) {
     throw new Error(`${name} is not configured`);
   }
   return value;
+}
+
+function isSupabaseConfigured(): boolean {
+  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+}
+
+function getSupabaseClient(): SupabaseClient {
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+
+  supabaseClient = createClient(
+    requirePublicEnv(SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL"),
+    requirePublicEnv(SUPABASE_ANON_KEY, "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    },
+  );
+
+  return supabaseClient;
 }
 
 function toAuthSession(session: Session, user: ProfileResponse): AuthSession {
@@ -64,7 +82,7 @@ async function ensureProfile(session: Session): Promise<ProfileResponse> {
     throw new Error("Supabase user email is missing");
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from("profiles")
     .upsert(
       {
@@ -89,7 +107,12 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 }
 
 export async function getStoredSession(): Promise<AuthSession | null> {
-  const { data, error } = await supabase.auth.getSession();
+  if (!isSupabaseConfigured()) {
+    currentAuthSession = null;
+    return null;
+  }
+
+  const { data, error } = await getSupabaseClient().auth.getSession();
   if (error) {
     throw new Error(error.message);
   }
@@ -107,30 +130,41 @@ export function getAccessToken(): string | null {
   return currentAuthSession?.accessToken ?? null;
 }
 
-export function onAuthSessionChange(callback: (session: AuthSession | null) => void): () => void {
-  const { data } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-    if (!session) {
-      currentAuthSession = null;
-      callback(null);
-      return;
-    }
+export function onAuthSessionChange(
+  callback: (session: AuthSession | null) => void,
+): () => void {
+  if (!isSupabaseConfigured()) {
+    return () => undefined;
+  }
 
-    void ensureProfile(session)
-      .then((user) => {
-        currentAuthSession = toAuthSession(session, user);
-        callback(currentAuthSession);
-      })
-      .catch(() => {
+  const { data } = getSupabaseClient().auth.onAuthStateChange(
+    (_event: AuthChangeEvent, session: Session | null) => {
+      if (!session) {
         currentAuthSession = null;
         callback(null);
-      });
-  });
+        return;
+      }
+
+      void ensureProfile(session)
+        .then((user) => {
+          currentAuthSession = toAuthSession(session, user);
+          callback(currentAuthSession);
+        })
+        .catch(() => {
+          currentAuthSession = null;
+          callback(null);
+        });
+    },
+  );
 
   return () => data.subscription.unsubscribe();
 }
 
 export async function signInWithPassword(email: string, password: string): Promise<AuthSession> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+    email,
+    password,
+  });
   if (error) {
     throw new Error(error.message);
   }
@@ -144,7 +178,7 @@ export async function signInWithPassword(email: string, password: string): Promi
 }
 
 export async function signOutSession(): Promise<void> {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await getSupabaseClient().auth.signOut();
   if (error) {
     throw new Error(error.message);
   }

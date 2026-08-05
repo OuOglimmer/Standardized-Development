@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchPosts } from "@/lib/api/posts";
 import { fetchTags } from "@/lib/api/tags";
+import { TAGS_PAGE_VISIBLE } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,10 @@ export const metadata = {
 };
 
 export default async function TagsPage() {
+  if (!TAGS_PAGE_VISIBLE) {
+    notFound();
+  }
+
   const [tags, posts] = await Promise.all([
     fetchTags(),
     fetchPosts({ is_published: true, limit: 100 }),
@@ -25,10 +31,10 @@ export default async function TagsPage() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-16 sm:py-24">
+    <section className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-16 sm:px-6 sm:py-24">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Tags</h1>
-        <p className="mt-2 text-sm text-muted-foreground">按主题聚合文章。</p>
+        <h1 className="text-4xl font-semibold text-foreground sm:text-5xl">Tags</h1>
+        <p className="mt-3 text-base text-muted-foreground">按主题聚合文章。</p>
       </div>
 
       {tags.length === 0 ? (
@@ -36,7 +42,7 @@ export default async function TagsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {tags.map((tag) => (
-            <Card key={tag.id} className="rounded-lg transition-colors hover:border-primary/40">
+            <Card key={tag.id} className="bg-card/70 transition-[border-color,background-color,transform] hover:-translate-y-0.5 hover:border-primary/35 hover:bg-card">
               <CardHeader>
                 <CardTitle>
                   <Link href={`/tags/${tag.slug}`} className="hover:text-primary">

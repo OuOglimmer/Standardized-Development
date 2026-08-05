@@ -1,11 +1,13 @@
 "use client";
 
 import { type ChangeEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FilePenLine, FileUp, Plus, X } from "lucide-react";
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -15,40 +17,148 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createPost, type CreatePostBody } from "@/lib/api/posts";
+import { createTag, fetchTags } from "@/lib/api/tags";
+import {
+  createTagSlug,
+  createUploadSlug,
+  parseMarkdownFile,
+  type StoredContentFormat,
+} from "@/lib/markdown";
 
 type PublishMode = "diary" | "blog";
 const MAX_MARKDOWN_FILE_SIZE = 1_048_576;
+const DIARY_EMOJIS = [
+  "😊",
+  "😌",
+  "🙂",
+  "🥰",
+  "🤔",
+  "😴",
+  "😭",
+  "😤",
+  "🌤️",
+  "🌧️",
+  "🌙",
+  "✨",
+  "🌱",
+  "🍃",
+  "☕",
+  "📚",
+  "💻",
+  "🎧",
+  "📝",
+  "🏃",
+  "🍜",
+  "🎬",
+  "🧘",
+  "🎯",
+] as const;
 
-function createSlug(mode: PublishMode, date: string) {
-  return `${mode}-${date}-${Date.now()}`;
+interface CreatePostInput {
+  body: CreatePostBody;
+  tagNames: string[];
 }
 
-export function DiarySubmit() {
+function getLocalDateInputValue(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+export function DiarySubmit({ mode }: { mode: PublishMode }) {
   const { session, isAdmin } = useAuth();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<PublishMode>("diary");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [sourceFilename, setSourceFilename] = useState<string | null>(null);
+  const [sourceContentFormat, setSourceContentFormat] =
+    useState<Extract<StoredContentFormat, "markdown" | "mdx">>("markdown");
+  const [frontmatterSlug, setFrontmatterSlug] = useState<string | null>(null);
+  const [frontmatterDescription, setFrontmatterDescription] = useState<string | null>(null);
+  const [frontmatterTags, setFrontmatterTags] = useState<string[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [emoji, setEmoji] = useState("😊");
-  const [diaryDate, setDiaryDate] = useState(
-    () => new Date().toISOString().split("T")[0]
-  );
+  const [diaryDate, setDiaryDate] = useState(getLocalDateInputValue);
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mutation = useMutation({
-    mutationFn: (body: CreatePostBody) => createPost(body),
-    onSuccess: () => {
+    mutationFn: async ({ body, tagNames }: CreatePostInput) => {
+      const tagIds = await resolveTagIds(tagNames);
+      return createPost({
+        ...body,
+        tag_ids: tagIds,
+      });
+    },
+    onSuccess: (post) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       setOpen(false);
       setTitle("");
       setContent("");
       setSourceFilename(null);
+      setSourceContentFormat("markdown");
+      setFrontmatterSlug(null);
+      setFrontmatterDescription(null);
+      setFrontmatterTags([]);
       setFileError(null);
+      setEmoji("😊");
+      setDiaryDate(getLocalDateInputValue());
+      if (mode === "blog") {
+        router.push(`/blog/${post.slug}`);
+      } else {
+        router.refresh();
+      }
     },
   });
+
+  const resetFileState = () => {
+    setSourceFilename(null);
+    setSourceContentFormat("markdown");
+    setFrontmatterSlug(null);
+    setFrontmatterDescription(null);
+    setFrontmatterTags([]);
+    setFileError(null);
+  };
+
+  const resolveTagIds = async (tagNames: string[]): Promise<string[]> => {
+    const uniqueNames = Array.from(new Set(tagNames.map((tag) => tag.trim()).filter(Boolean)));
+    if (uniqueNames.length === 0) return [];
+
+    const tags = await fetchTags();
+    const tagsByName = new Map(tags.map((tag) => [tag.name.toLowerCase(), tag]));
+    const resolvedIds: string[] = [];
+
+    for (const name of uniqueNames) {
+      const existing = tagsByName.get(name.toLowerCase());
+      if (existing) {
+        resolvedIds.push(existing.id);
+        continue;
+      }
+
+      try {
+        const created = await createTag({
+          name,
+          slug: createTagSlug(name),
+        });
+        resolvedIds.push(created.id);
+        tagsByName.set(created.name.toLowerCase(), created);
+      } catch {
+        const refreshedTags = await fetchTags();
+        const refreshed = refreshedTags.find(
+          (tag) => tag.name.toLowerCase() === name.toLowerCase()
+        );
+        if (refreshed) {
+          resolvedIds.push(refreshed.id);
+        } else {
+          throw new Error(`标签创建失败：${name}`);
+        }
+      }
+    }
+
+    return resolvedIds;
+  };
 
   if (!session) {
     return (
@@ -71,13 +181,6 @@ export function DiarySubmit() {
     );
   }
 
-  const handleModeChange = (nextMode: PublishMode) => {
-    setMode(nextMode);
-    setSourceFilename(null);
-    setFileError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -99,39 +202,60 @@ export function DiarySubmit() {
 
     try {
       const text = await file.text();
-      if (!text.trim()) {
+      const parsed = parseMarkdownFile(file.name, text);
+      if (!parsed.content.trim()) {
         setFileError("文件内容不能为空");
         return;
       }
-      setContent(text);
+      setContent(parsed.content);
+      setSourceContentFormat(parsed.contentFormat);
       setSourceFilename(file.name);
+      setFrontmatterSlug(parsed.slug ?? null);
+      setFrontmatterDescription(parsed.description ?? null);
+      setFrontmatterTags(parsed.tags);
+      if (parsed.title) {
+        setTitle(parsed.title);
+      }
     } catch {
-      setFileError("文件读取失败，请重新选择");
+      setFileError("文件解析失败，请检查 frontmatter 或 MDX 内容");
     }
   };
 
   const clearUploadedFile = () => {
-    setSourceFilename(null);
-    setFileError(null);
+    resetFileState();
   };
 
   const handleSubmit = () => {
     if (!content.trim()) return;
     const trimmedTitle = mode === "blog" ? title.trim() : `${diaryDate} 日记`;
+    const slug =
+      mode === "blog"
+        ? createUploadSlug({
+            fileName: sourceFilename ?? trimmedTitle,
+            frontmatterSlug: frontmatterSlug ?? undefined,
+            title: trimmedTitle,
+          })
+        : `diary-${diaryDate}-${Date.now()}`;
 
     const body: CreatePostBody = {
-      slug: createSlug(mode, diaryDate),
+      slug,
       title: trimmedTitle,
       content: mode === "blog" ? content : content.trim(),
-      content_format: mode === "blog" ? "markdown" : "plain",
+      content_format: mode === "blog" ? sourceContentFormat : "plain",
       source_filename: mode === "blog" ? sourceFilename ?? undefined : undefined,
-      description: content.trim().slice(0, 120),
+      description:
+        mode === "blog"
+          ? frontmatterDescription ?? content.trim().slice(0, 120)
+          : content.trim().slice(0, 120),
       emoji: mode === "diary" ? emoji : "",
       diary_date: mode === "diary" ? diaryDate : undefined,
       is_published: true,
     };
 
-    mutation.mutate(body);
+    mutation.mutate({
+      body,
+      tagNames: mode === "blog" ? frontmatterTags : [],
+    });
   };
 
   return (
@@ -144,30 +268,11 @@ export function DiarySubmit() {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>发布内容</DialogTitle>
-          <DialogDescription>写一条日记，或发布一篇 Blog。</DialogDescription>
+          <DialogTitle>{mode === "blog" ? "发布 Blog" : "发布日记"}</DialogTitle>
+          <DialogDescription>
+            {mode === "blog" ? "发布一篇 Blog 文章。" : "记录当天的日记。"}
+          </DialogDescription>
         </DialogHeader>
-
-        <div className="flex rounded-lg border border-border bg-muted/40 p-1">
-          <button
-            type="button"
-            onClick={() => handleModeChange("diary")}
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              mode === "diary" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            日记
-          </button>
-          <button
-            type="button"
-            onClick={() => handleModeChange("blog")}
-            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              mode === "blog" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            Blog
-          </button>
-        </div>
 
         <div className="flex flex-col gap-4">
           {mode === "blog" ? (
@@ -184,7 +289,7 @@ export function DiarySubmit() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".md,.mdx,text/markdown"
+                accept=".md,.mdx,text/markdown,text/mdx"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -202,6 +307,9 @@ export function DiarySubmit() {
                 {sourceFilename && (
                   <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                     <span className="truncate">{sourceFilename}</span>
+                    <span className="rounded-sm bg-muted px-1.5 py-0.5 uppercase">
+                      {sourceContentFormat}
+                    </span>
                     <Button
                       type="button"
                       variant="ghost"
@@ -220,23 +328,41 @@ export function DiarySubmit() {
             <div className="flex items-center gap-3">
               <label className="flex flex-col gap-1.5 text-sm font-medium">
                 日期
-                <input
+                <Input
                   type="date"
                   value={diaryDate}
                   onChange={(event) => setDiaryDate(event.target.value)}
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-sm font-medium">
                 心情
-                <input
+                <Input
                   type="text"
                   value={emoji}
                   onChange={(event) => setEmoji(event.target.value)}
-                  className="h-9 w-14 rounded-md border border-input bg-background px-2 text-center text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                  maxLength={4}
+                  className="w-16 px-2 text-center text-base"
+                  maxLength={8}
                 />
               </label>
+            </div>
+          )}
+
+          {mode === "diary" && (
+            <div className="grid grid-cols-8 gap-1.5 rounded-lg border border-border/70 bg-muted/25 p-2">
+              {DIARY_EMOJIS.map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  variant={emoji === option ? "secondary" : "ghost"}
+                  size="icon-sm"
+                  className="text-base"
+                  aria-label={`选择 ${option}`}
+                  aria-pressed={emoji === option}
+                  onClick={() => setEmoji(option)}
+                >
+                  <span aria-hidden>{option}</span>
+                </Button>
+              ))}
             </div>
           )}
 

@@ -1,17 +1,15 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+
 import type { PortfolioRow } from "../data";
-import { TrailGlow, ShimmerOverlay, LightSweep, PlaceholderMockup } from "../effects";
 
 const cardUp = {
-  hidden: { opacity: 0, y: 72, scale: 0.96, filter: "blur(4px)" },
+  hidden: { opacity: 0, y: 24 },
   show: {
     opacity: 1,
     y: 0,
-    scale: 1,
-    filter: "blur(0px)",
-    transition: { duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] as const },
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
   },
 };
 
@@ -22,47 +20,32 @@ export function WideCard({
   item: PortfolioRow["wide"];
   isCenter: boolean;
 }) {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
-    <motion.div variants={cardUp} className="group relative">
-      <TrailGlow />
-      <motion.div
-        className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-xl"
-        animate={isCenter ? { y: -6 } : { y: 0 }}
-        whileHover={{ y: -10 }}
-        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-      >
-        <ShimmerOverlay />
-        <LightSweep isCenter={isCenter} />
-
-        {isCenter && (
-          <div
-            className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)_inset]"
-            aria-hidden
-          />
-        )}
-
-        <div className="relative z-10 flex flex-col p-5 sm:p-6">
-          <div className="mb-4 aspect-[16/10] w-full overflow-hidden rounded-xl bg-white/[0.02]">
-            <PlaceholderMockup />
-          </div>
-          <h3 className="text-base font-semibold tracking-tight text-white/85 sm:text-lg">
-            {item.title}
-          </h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-white/45">
-            {item.description}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {item.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2.5 py-0.5 text-[11px] font-medium text-white/40"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
+    <motion.article
+      variants={cardUp}
+      whileHover={shouldReduceMotion ? undefined : { y: -3 }}
+      className={`flex h-full min-h-44 flex-col justify-between rounded-lg border bg-background/45 p-5 transition-colors sm:p-6 ${
+        isCenter ? "border-primary/30" : "border-border hover:border-primary/20"
+      }`}
+    >
+      <div>
+        <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+          {item.description}
+        </p>
+      </div>
+      <div className="mt-6 flex flex-wrap gap-2">
+        {item.tags.map((tag) => (
+          <span
+            key={tag}
+            className="rounded-md border border-border bg-secondary/70 px-2.5 py-1 text-xs font-medium text-secondary-foreground"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    </motion.article>
   );
 }

@@ -1,57 +1,52 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { Mail, MapPin } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 
 export function AboutHero() {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <section
-      className="relative w-full bg-muted/50 border-b border-blue-500/30 dark:border-blue-400/20 py-20 lg:py-32"
+      className="relative w-full border-b border-border/70 py-16 sm:py-24"
       aria-labelledby="about-hero-title"
     >
-      <div className="mx-auto max-w-3xl px-4 text-center">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(260px,0.7fr)] md:items-end">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         >
           <h1
             id="about-hero-title"
-            className="mb-6 text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl"
+            className="text-5xl font-semibold leading-none text-foreground sm:text-6xl"
           >
-            About
-            <br />
-            <span className="text-blue-500 dark:text-blue-400">Me</span>
+            About Me
           </h1>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-            className="max-w-xl mx-auto text-lg text-muted-foreground leading-relaxed sm:text-xl"
-          >
-            一个在代码里找秩序、在文字里找节奏的开发者。热爱技术，更热爱用技术解决实际问题。
-            这里记录技术思考、项目复盘，以及生活里的碎碎念。
-          </motion.p>
+          <p className="mt-6 max-w-2xl text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
+            在代码里寻找秩序，在文字里记录思考。关注全栈开发、产品体验和真实问题的解决过程。
+          </p>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-          className="mt-10 flex items-center justify-center gap-6 text-sm text-muted-foreground"
+          transition={{ duration: 0.5, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+          className="space-y-3 border-l border-primary/30 pl-5 text-sm text-muted-foreground"
         >
-          <span className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5">
-            📍 Earth · Remote
-          </span>
-          <span className="flex items-center gap-2 rounded-full border border-border bg-background px-4 py-1.5">
-            ✉️ OuOglimmer@outlook.com
-          </span>
+          <p className="flex items-center gap-2">
+            <MapPin className="size-4 text-primary" aria-hidden />
+            Earth · Remote
+          </p>
+          <a
+            href="mailto:OuOglimmer@outlook.com"
+            className="flex items-center gap-2 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Mail className="size-4 text-primary" aria-hidden />
+            OuOglimmer@outlook.com
+          </a>
         </motion.div>
       </div>
-
-      <div
-        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"
-        aria-hidden="true"
-      />
     </section>
   );
 }

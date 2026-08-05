@@ -4,8 +4,8 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-border/60">
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center justify-between gap-2 px-4 py-6 text-sm text-muted-foreground sm:flex-row">
+    <footer className="mt-auto border-t border-border/70 bg-card/25">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 py-7 text-sm text-muted-foreground sm:flex-row sm:px-6">
         <p>
           © {year} OuOglimmer. All rights reserved.
         </p>

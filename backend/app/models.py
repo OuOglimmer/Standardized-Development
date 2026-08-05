@@ -41,6 +41,7 @@ class Post(Base):
     diary_date = Column(Date)
     author_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"))
     reading_time = Column(Integer, default=0, nullable=False)
+    display_order = Column(Integer)
     is_published = Column(Boolean, default=False)
     view_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

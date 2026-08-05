@@ -41,11 +41,14 @@ class TagCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9-]+$")
 
 
+PostContentFormat = Literal["plain", "markdown", "mdx"]
+
+
 class PostCreate(BaseModel):
     title: str
     slug: str = Field(min_length=1, max_length=160, pattern=r"^[a-z0-9-]+$")
     content: str = Field(min_length=1, max_length=MAX_POST_CONTENT_LENGTH)
-    content_format: Literal["plain", "markdown"] = "plain"
+    content_format: PostContentFormat = "plain"
     source_filename: str | None = Field(default=None, max_length=255)
     description: str | None = None
     cover_image: str | None = None
@@ -60,7 +63,7 @@ class PostUpdate(BaseModel):
     title: str | None = None
     slug: str | None = Field(default=None, min_length=1, max_length=160, pattern=r"^[a-z0-9-]+$")
     content: str | None = Field(default=None, min_length=1, max_length=MAX_POST_CONTENT_LENGTH)
-    content_format: Literal["plain", "markdown"] | None = None
+    content_format: PostContentFormat | None = None
     source_filename: str | None = Field(default=None, max_length=255)
     description: str | None = None
     cover_image: str | None = None
@@ -76,13 +79,14 @@ class PostOut(BaseModel):
     title: str
     slug: str
     content: str
-    content_format: Literal["plain", "markdown"]
+    content_format: PostContentFormat
     source_filename: str | None = None
     description: str | None = None
     cover_image: str | None = None
     emoji: str
     diary_date: date | None = None
     author_id: UUID
+    display_order: int | None = None
     is_published: bool
     reading_time: int = 0
     view_count: int = 0
@@ -91,6 +95,10 @@ class PostOut(BaseModel):
     tags: list[TagOut] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PostOrderUpdate(BaseModel):
+    post_ids: list[UUID] = Field(default_factory=list)
 
 
 class ProjectCreate(BaseModel):

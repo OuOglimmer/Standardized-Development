@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import { zhCN } from "date-fns/locale";
+import { motion, useReducedMotion } from "framer-motion";
+import { Sparkles, Trash2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -15,13 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { deletePost, fetchPosts, type Post } from "@/lib/api/posts";
-import {
-  formatDateParam,
-  formatDay,
-  formatMonth,
-  getRecentDays,
-  isSameDay,
-} from "@/lib/date-utils";
+import { formatDateParam } from "@/lib/date-utils";
 import { cardVariants } from "./animations";
 import { DiarySubmit } from "./diary-submit";
 
@@ -59,9 +55,9 @@ async function fetchAllDiaries(diaryDate?: string): Promise<Post[]> {
 }
 
 export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
+  const shouldReduceMotion = useReducedMotion();
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const recentDays = getRecentDays(7);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [postToDelete, setPostToDelete] = useState<Post | null>(null);
   const selectedDiaryDate = selectedDate ? formatDateParam(selectedDate) : undefined;
@@ -70,6 +66,15 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
     queryKey: ["posts", "diary", selectedDiaryDate ?? "all"],
     queryFn: () => fetchAllDiaries(selectedDiaryDate),
   });
+
+  const { data: calendarPosts = [] } = useQuery({
+    queryKey: ["posts", "diary", "calendar"],
+    queryFn: () => fetchAllDiaries(),
+  });
+  const diaryDates = calendarPosts
+    .map((post) => post.diary_date)
+    .filter((date): date is string => Boolean(date))
+    .map((date) => new Date(`${date}T00:00:00`));
 
   const deleteMutation = useMutation({
     mutationFn: (postId: string) => deletePost(postId),
@@ -93,28 +98,39 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
 
   return (
     <section
-      className={`mx-auto w-full max-w-5xl px-4 ${
+      className={`relative isolate mx-auto w-full max-w-5xl px-4 sm:px-6 ${
         showTitle ? "py-16 sm:py-24" : "pb-16 sm:pb-24"
       }`}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-4 top-8 -z-10 h-52 rounded-lg border border-border/50 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:28px_28px] opacity-35 [mask-image:linear-gradient(to_bottom,black,transparent)]"
+      />
       {showTitle && (
         <>
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="mb-2 text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
-          >
-            日记
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-            className="mb-12 text-center text-sm text-muted-foreground"
-          >
-            记录日常思考与碎碎念
-          </motion.p>
+          <div className="relative mb-12">
+            <motion.h1
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="mb-2 flex items-center gap-3 text-4xl font-semibold text-foreground sm:text-5xl"
+            >
+              日记
+              <Sparkles className="mt-1 size-6 text-primary/70 sm:size-7" aria-hidden />
+            </motion.h1>
+            <motion.p
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+              className="text-base text-muted-foreground"
+            >
+              记录日常思考与碎碎念
+            </motion.p>
+            <div
+              aria-hidden
+              className="mt-6 h-px w-28 bg-gradient-to-r from-primary/45 via-border to-transparent"
+            />
+          </div>
         </>
       )}
 
@@ -122,80 +138,57 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
         <aside className="w-full shrink-0 lg:w-1/3">
           <div className="lg:sticky lg:top-28">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                {formatMonth(recentDays[0])}
-              </h2>
-              <DiarySubmit />
+              <h2 className="text-sm font-semibold text-muted-foreground">日历</h2>
+              <DiarySubmit mode="diary" />
             </div>
-            <ul className="flex flex-row gap-2 overflow-x-auto lg:flex-col">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setSelectedDate(null)}
-                  className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-colors lg:px-5 ${
-                    selectedDate === null
-                      ? "bg-primary/10 font-semibold text-primary"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  全部
-                </button>
-              </li>
-              {recentDays.map((day) => {
-                const { date, dayName } = formatDay(day);
-                const isActive = selectedDate !== null && isSameDay(day, selectedDate);
-
-                return (
-                  <motion.li
-                    key={day.toISOString()}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      duration: 0.4,
-                      delay: 0.2 + recentDays.indexOf(day) * 0.04,
-                      ease: "easeOut",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDate(day)}
-                      className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-colors lg:px-5 ${
-                        isActive
-                          ? "bg-primary/10 font-semibold text-primary"
-                          : "text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      <span className="block text-[15px] font-medium">
-                        {date}日
-                      </span>
-                      <span className="block text-xs opacity-60">
-                        {dayName}
-                      </span>
-                    </button>
-                  </motion.li>
-                );
-              })}
-            </ul>
+            <div className="relative overflow-hidden rounded-lg border border-border bg-card/85 shadow-sm backdrop-blur-sm">
+              <div
+                aria-hidden
+                className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/35 via-border to-transparent"
+              />
+              <Calendar
+                mode="single"
+                selected={selectedDate ?? undefined}
+                onSelect={(date) => setSelectedDate(date ?? null)}
+                locale={zhCN}
+                modifiers={{ hasDiary: diaryDates }}
+                modifiersClassNames={{ hasDiary: "[&>button]:after:absolute [&>button]:after:bottom-1 [&>button]:after:size-1 [&>button]:after:rounded-full [&>button]:after:bg-primary" }}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2 w-full justify-start"
+              onClick={() => setSelectedDate(null)}
+              disabled={selectedDate === null}
+            >
+              显示全部日记
+            </Button>
           </div>
         </aside>
 
         <main className="flex-1">
           {error ? (
-            <p className="mt-8 text-center text-sm text-destructive">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
               {error instanceof Error ? error.message : "日记加载失败"}
-            </p>
+            </div>
           ) : isLoading ? (
-            <p className="text-sm text-muted-foreground">加载中...</p>
+            <div className="space-y-4" aria-label="日记加载中">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="h-40 animate-pulse rounded-lg border border-border bg-card/60" />
+              ))}
+            </div>
           ) : posts.length === 0 ? (
-            <p className="mt-8 text-center text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border bg-card/35 px-6 py-12 text-center text-sm text-muted-foreground">
               {selectedDate === null ? "暂无日记" : "这一天还没有日记"}
             </p>
           ) : (
             <motion.div
-              initial="hidden"
+              initial={shouldReduceMotion ? false : "hidden"}
               whileInView="show"
               viewport={{ once: true, margin: "-40px" }}
-              className="flex flex-col gap-6"
+              className="relative flex flex-col gap-6 before:absolute before:bottom-10 before:left-4 before:top-10 before:w-px before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent sm:before:left-6"
             >
               {posts.map((entry, i) => (
                 <DiaryCard
@@ -203,6 +196,7 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
                   entry={entry}
                   index={i}
                   canDelete={isAdmin}
+                  reduceMotion={Boolean(shouldReduceMotion)}
                   onDelete={openDeleteDialog}
                 />
               ))}
@@ -221,7 +215,7 @@ export function DiaryFeed({ showTitle = true }: { showTitle?: boolean }) {
           <DialogHeader>
             <DialogTitle>删除这篇日记？</DialogTitle>
             <DialogDescription>
-              删除后将不再公开显示，但内容仍会保留在数据库中。
+              删除后会永久移除日记正文及其数据库记录，无法恢复。
             </DialogDescription>
           </DialogHeader>
 
@@ -264,25 +258,35 @@ function DiaryCard({
   entry,
   index,
   canDelete,
+  reduceMotion,
   onDelete,
 }: {
   entry: Post;
   index: number;
   canDelete: boolean;
+  reduceMotion: boolean;
   onDelete: (entry: Post) => void;
 }) {
   return (
     <motion.article
       variants={cardVariants}
       custom={index}
-      whileHover={{
+      whileHover={reduceMotion ? undefined : {
         y: -4,
         boxShadow:
           "0 12px 28px -8px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.02)",
         transition: { duration: 0.3, ease: "easeOut" },
       }}
-      className="group rounded-2xl border border-border/50 bg-card p-6 shadow-[0_4px_12px_rgba(0,0,0,0.03)] transition-shadow duration-300 ease-in-out hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.08)] sm:p-8"
+      className="group relative overflow-hidden rounded-lg border border-border/80 bg-card/70 p-6 pl-10 transition-[border-color,background-color,transform] hover:border-primary/25 hover:bg-card sm:p-8 sm:pl-14"
     >
+      <span
+        aria-hidden
+        className="absolute left-4 top-8 size-2 rounded-full bg-primary/55 ring-4 ring-background transition-colors group-hover:bg-primary sm:left-6"
+      />
+      <span
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-primary/25 via-border to-transparent"
+      />
       <div className="mb-4 flex items-center justify-between">
         <time
           dateTime={entry.diary_date ?? undefined}
@@ -321,7 +325,7 @@ function DiaryCard({
           {entry.tags.map((tag) => (
             <span
               key={tag.id}
-              className="rounded-lg bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
+              className="rounded-md bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
             >
               {tag.name}
             </span>

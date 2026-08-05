@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bodoni_Moda, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { SiteHeader } from "@/components/layout/site-header";
@@ -18,17 +18,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const bodoniModa = Bodoni_Moda({
+  variable: "--font-bodoni-moda",
+  subsets: ["latin"],
+  weight: "variable",
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "OuOglimmer's Blog",
     template: "%s | OuOglimmer's Blog",
   },
-  description: "个人博客 —— 记录技术、思考与生活。",
+  description: "个人博客，记录技术、思考与生活。",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: "/icon.svg",
+  },
 };
 
-// 防止首屏主题闪烁：在浏览器绘制前同步读取用户偏好并设置 .dark 类。
-// 优先级：localStorage > 系统偏好。回退到亮色。
-const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");var m=window.matchMedia("(prefers-color-scheme: dark)").matches;if(t==="dark"||(!t&&m)){document.documentElement.classList.add("dark")}}catch(e){}})()`;
+// 防止首屏主题闪烁：保留用户选择，没有记录时默认使用暗色主题。
+const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");document.documentElement.classList.toggle("dark",t!=="light")}catch(e){document.documentElement.classList.add("dark")}})()`;
 
 export default function RootLayout({
   children,
@@ -37,8 +48,8 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="zh-CN"
+      className={`${geistSans.variable} ${geistMono.variable} ${bodoniModa.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -46,7 +57,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background">
+      <body className="flex min-h-[100dvh] flex-col bg-background text-foreground">
         <QueryProvider>
           <AuthProvider>
             <GridHeaderDecorator />

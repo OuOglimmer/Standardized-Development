@@ -1,101 +1,99 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
+import Link from "next/link";
+import { ArrowRight, BookOpen } from "lucide-react";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 
-const TITLE = "Welcome…";
+import { Button } from "@/components/ui/button";
 
-// 容器：逐字 stagger 弹入
-const container: Variants = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.08, delayChildren: 0.1 },
-  },
-};
-
-// 单个字符：从下方旋转弹入
-const letter: Variants = {
-  hidden: { opacity: 0, y: 40, rotateX: -90 },
-  show: {
+const reveal: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  show: (delay: number = 0) => ({
     opacity: 1,
     y: 0,
-    rotateX: 0,
-    transition: { type: "spring", damping: 12, stiffness: 200 },
-  },
-};
-
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+    transition: { duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] },
+  }),
 };
 
 export function Hero() {
+  const shouldReduceMotion = useReducedMotion();
+  const initial = shouldReduceMotion ? false : "hidden";
+
   return (
     <section
-      className="relative flex min-h-[100svh] w-full items-center justify-center overflow-hidden"
-      aria-label="首屏欢迎"
+      className="relative flex min-h-[calc(100dvh-4rem)] w-full items-center overflow-hidden"
+      aria-label="首页介绍"
     >
-      {/* 背景径向光晕：亮/暗自适应 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_40%,color-mix(in_oklch,currentColor_8%,transparent),transparent)] text-foreground"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent"
-      />
-
-      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 text-center">
-        {/* 大 Title：逐字符弹入 */}
-        <motion.h1
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="flex flex-wrap items-center justify-center gap-x-1 text-5xl font-bold tracking-tight text-foreground sm:text-7xl md:text-8xl"
-          style={{ perspective: 600 }}
-          aria-label={TITLE}
-        >
-          {TITLE.split("").map((ch, i) => (
-            <motion.span
-              key={`${ch}-${i}`}
-              variants={letter}
-              className="inline-block [transform-origin:center_bottom]"
-              aria-hidden
-            >
-              {ch === " " ? " " : ch}
-            </motion.span>
-          ))}
-        </motion.h1>
-
-        {/* 副标题 */}
-        <motion.p
-          variants={fadeUp}
-          initial="hidden"
-          animate="show"
-          transition={{ delay: 0.6 }}
-          className="mx-auto mt-6 max-w-xl text-pretty text-base text-muted-foreground sm:text-lg"
-        >
-          一个记录技术、思考与生活的个人博客。向下滚动，认识我，或直接和驻场的 Agent 们打个招呼。
-        </motion.p>
-
-        {/* 滚动提示 */}
-        <motion.a
-          href="#about"
-          variants={fadeUp}
-          initial="hidden"
-          animate="show"
-          transition={{ delay: 1 }}
-          className="mt-12 inline-flex flex-col items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <span>向下滚动</span>
-          <motion.span
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-            className="text-lg"
-            aria-hidden
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl items-center px-4 py-16 sm:px-6 md:py-20">
+        <div className="max-w-3xl">
+          <motion.p
+            variants={reveal}
+            initial={initial}
+            animate="show"
+            custom={0}
+            className="mb-5 font-mono text-xs font-medium text-primary"
           >
-            ↓
-          </motion.span>
-        </motion.a>
+            PERSONAL NOTES / 2026
+          </motion.p>
+
+          <motion.h1
+            variants={reveal}
+            initial={initial}
+            animate="show"
+            custom={0.06}
+            className="relative w-fit font-display text-6xl font-semibold leading-[0.9] text-foreground sm:text-7xl lg:text-8xl"
+            aria-label="OuOglimmer"
+          >
+            <span className="sr-only">OuOglimmer</span>
+            <span
+              aria-hidden
+              className="absolute inset-0 text-primary/15 [transform:translate(0.055em,0.075em)]"
+            >
+              <span>OuO</span>
+              <span className="italic">glimmer</span>
+            </span>
+            <span aria-hidden className="relative">
+              <span>OuO</span>
+              <span className="italic text-primary">glimmer</span>
+            </span>
+            <span
+              aria-hidden
+              className="absolute -bottom-3 left-0 h-px w-2/5 origin-left bg-primary/70"
+            />
+          </motion.h1>
+
+          <motion.p
+            variants={reveal}
+            initial={initial}
+            animate="show"
+            custom={0.12}
+            className="mt-6 max-w-xl text-pretty text-base leading-7 text-muted-foreground sm:text-lg"
+          >
+            记录技术实践、产品思考与日常观察，让复杂问题在文字中变得清晰。
+          </motion.p>
+
+          <motion.div
+            variants={reveal}
+            initial={initial}
+            animate="show"
+            custom={0.18}
+            className="mt-8 flex flex-wrap gap-3"
+          >
+            <Button asChild size="lg">
+              <Link href="/blog">
+                <BookOpen className="size-4" />
+                阅读文章
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/about">
+                关于我
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </motion.div>
+        </div>
+
       </div>
     </section>
   );
