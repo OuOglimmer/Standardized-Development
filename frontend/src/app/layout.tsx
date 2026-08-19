@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { SiteHeader } from "@/components/layout/site-header";
@@ -7,24 +6,6 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { GridHeaderDecorator } from "@/components/layout/grid-header-decorator";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { QueryProvider } from "@/lib/api/query-provider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const bodoniModa = Bodoni_Moda({
-  variable: "--font-bodoni-moda",
-  subsets: ["latin"],
-  weight: "variable",
-  style: ["normal", "italic"],
-  axes: ["opsz"],
-});
 
 export const metadata: Metadata = {
   title: {
@@ -49,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} ${bodoniModa.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       <head>
